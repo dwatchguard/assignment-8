@@ -59,7 +59,7 @@ ruleset manage_sensors {
     rule delete_sensor {
         select when sensor unneeded_sensor
         pre {
-            nec2-18-216-27-115.us-east-2.compute.amazonaws.comame = event:attr("name");
+            name = event:attr("name");
             contains = sensors() >< name;
             val = ent:sensors.delete(name);
         }
