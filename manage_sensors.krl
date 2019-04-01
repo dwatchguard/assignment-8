@@ -22,13 +22,14 @@ ruleset manage_sensors {
         if ent:sensors.isnull() then noop();
         fired {
             ent:sensors := {};
+			ent:num_sensors := 0;
         }
     }
 	rule intialize_channels {
         select when wrangler ruleset_added where event:attr("rids") >< meta:rid
-        if ent:cids.isnull() then noop();
+        if ent:reports.isnull() then noop();
         fired {
-            ent:cids := {};
+            ent:reports := {};
         }
     }
     rule create_sensor {
@@ -54,6 +55,7 @@ ruleset manage_sensors {
         event:send({"eci": eci, "domain":"sensor", "type":"profile_updated", "attrs":{"name": name, "location" : default_location, "threshold" : default_threshold, "SMS" : default_SMS}})
         fired {
            ent:sensors := val;
+		   ent:num_sensors := ent:num_sensors + 1;
 		}
     }
     rule delete_sensor {
@@ -69,25 +71,26 @@ ruleset manage_sensors {
             raise wrangler event "child_deletion"
                 attributes { "name" : name };
             ent:sensors := val;
+			ent:num_sensors := ent:num_sensors - 1;
         } 
     }
 	rule request_temperature {
 			select when sensor recent_temperatures
 			pre {
 				map = wrangler.createChannel(random:uuid(), "temperature_collection");
-				cid = map.id;
-				val = ent:cids.put("cid" : ent:sensors);
 				}
 			fired {
 				raise sensor event "get_recent_temperatures"
-					attributes {"cid" : cid};
-				ent:cids := val;
+					attributes {"cid" : map[id]};
             }
 	}
 	rule requested_temperatures {
 		select when sensor get_recent_temperatures where event:attr("cid") != null
 			foreach ent:sensors setting (name, eci)
 				event:send({"eci" : eci, "eid" : event:attr("cid"), "domain" : "sensor", "type" : "send_temperatures"})
+		fired {
+		  ent:reports{event:attr("cid")} := {"temperature_sensors" : ent:num_sensors, "responding" : 0, "temperatures" : []};
+		}
 	}
 	rule gather_temperatures {
 		select when sensor recent_temperatures
